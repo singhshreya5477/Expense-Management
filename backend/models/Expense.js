@@ -47,8 +47,16 @@ const Expense = sequelize.define('Expense', {
     type: DataTypes.DATE,
     allowNull: false
   },
+  merchant: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   receipt: {
-    type: DataTypes.JSONB,
+    type: DataTypes.STRING,
     allowNull: true
   },
   expenseLines: {
@@ -81,7 +89,8 @@ const Expense = sequelize.define('Expense', {
   }
 }, {
   tableName: 'Expenses',
-  timestamps: true
+  timestamps: true,
+  underscored: false
 });
 
 module.exports = Expense;

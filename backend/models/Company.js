@@ -40,7 +40,8 @@ const Company = sequelize.define('Company', {
   }
 }, {
   tableName: 'Companies',
-  timestamps: true
+  timestamps: true,
+  underscored: false
 });
 
 module.exports = Company;

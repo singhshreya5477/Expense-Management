@@ -67,13 +67,16 @@ const Layout = () => {
         </nav>
 
         <div className="absolute bottom-0 w-full p-4 border-t border-gray-200">
-          <div className="flex items-center space-x-3 px-4 py-3">
+          <Link
+            to="/profile"
+            className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-100 rounded-lg transition-colors mb-2"
+          >
             <User size={20} className="text-gray-600" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
               <p className="text-xs text-gray-500">{user?.role}</p>
             </div>
-          </div>
+          </Link>
           <button
             onClick={handleLogout}
             className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
