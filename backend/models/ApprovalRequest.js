@@ -42,6 +42,7 @@ const ApprovalRequest = sequelize.define('ApprovalRequest', {
 }, {
   tableName: 'ApprovalRequests',
   timestamps: true,
+  underscored: false,
   indexes: [
     {
       fields: ['expenseId', 'stepNumber']

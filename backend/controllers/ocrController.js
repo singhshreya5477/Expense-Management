@@ -1,4 +1,17 @@
-const Tesseract = require('tesseract.js');
+// Lazy load Tesseract to avoid initialization errors
+let Tesseract = null;
+const loadTesseract = () => {
+  if (!Tesseract) {
+    try {
+      Tesseract = require('tesseract.js');
+    } catch (error) {
+      console.error('Tesseract loading error:', error.message);
+      throw new Error('OCR service temporarily unavailable');
+    }
+  }
+  return Tesseract;
+};
+
 const OpenAI = require('openai');
 const fs = require('fs');
 
@@ -70,8 +83,11 @@ exports.scanReceipt = async (req, res) => {
 
     const imagePath = req.file.path;
 
+    // Load Tesseract only when needed
+    const TesseractLib = loadTesseract();
+
     // Perform OCR
-    const { data: { text } } = await Tesseract.recognize(imagePath, 'eng', {
+    const { data: { text } } = await TesseractLib.recognize(imagePath, 'eng', {
       logger: m => console.log(m)
     });
 

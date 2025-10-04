@@ -111,7 +111,7 @@ const createApprovalRequests = async (expense, rule, employee) => {
 };
 
 exports.createExpense = asyncHandler(async (req, res, next) => {
-  const { amount, currency, category, description, date, expenseLines, receipt } = req.body;
+  const { amount, currency, category, description, date, expenseLines, merchant, notes } = req.body;
 
   if (!amount || !currency || !category || !description || !date) {
     return next(new AppError('Please provide all required fields', 400));
@@ -125,6 +125,9 @@ exports.createExpense = asyncHandler(async (req, res, next) => {
   // Convert amount to company currency
   const convertedAmount = await convertCurrency(amount, currency, company.currency.code);
 
+  // Get receipt path from multer if file was uploaded
+  const receiptPath = req.file ? `/uploads/receipts/${req.file.filename}` : null;
+
   const expense = await Expense.create({
     employeeId: req.user.id,
     companyId: req.user.companyId,
@@ -134,8 +137,10 @@ exports.createExpense = asyncHandler(async (req, res, next) => {
     category,
     description,
     date: new Date(date),
-    expenseLines: expenseLines || [],
-    receipt: receipt || null
+    merchant: merchant || null,
+    notes: notes || null,
+    expenseLines: expenseLines ? JSON.parse(expenseLines) : [],
+    receipt: receiptPath
   });
 
   // Find and apply approval rule

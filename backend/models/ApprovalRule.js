@@ -61,7 +61,8 @@ const ApprovalRule = sequelize.define('ApprovalRule', {
   }
 }, {
   tableName: 'ApprovalRules',
-  timestamps: true
+  timestamps: true,
+  underscored: false
 });
 
 module.exports = ApprovalRule;

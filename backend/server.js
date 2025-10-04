@@ -32,8 +32,9 @@ createDirectories();
 // Security Middleware
 app.use(helmet()); // Set security HTTP headers
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 app.use(xss()); // Prevent XSS attacks
 app.use(hpp()); // Prevent parameter pollution
@@ -62,7 +63,7 @@ const connectDB = async (retries = 5) => {
     
     // Sync database in development (be careful in production!)
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: false });
+      await sequelize.sync({ alter: true });
       logger.info('Database synchronized');
     }
   } catch (err) {
