@@ -1,4 +1,5 @@
 const { Client } = require('pg');
+require('dotenv').config();
 
 async function createDatabase() {
   // Connect to default postgres database

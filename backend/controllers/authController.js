@@ -83,12 +83,18 @@ const createSendToken = (user, statusCode, res, company = null) => {
 };
 
 exports.signup = asyncHandler(async (req, res, next) => {
+  // Log incoming request
+  logger.info('Signup request received:', { 
+    body: { ...req.body, password: '***' } 
+  });
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    logger.error('Validation errors:', errors.array());
     return next(new AppError(`Validation failed: ${errors.array()[0].msg}`, 400));
   }
 
-  const { email, password, name, companyName, country } = req.body;
+  const { email, password, name, companyName, currency } = req.body;
 
   // Check if user exists
   const existingUser = await User.findOne({ where: { email } });
@@ -96,29 +102,33 @@ exports.signup = asyncHandler(async (req, res, next) => {
     return next(new AppError('User already exists with this email', 400));
   }
 
-  // Get currency for selected country
-  const currency = await getCurrencyForCountry(country);
+  // Use the provided currency code
+  const currencyData = typeof currency === 'string' 
+    ? { code: currency, symbol: currency, name: currency }
+    : currency;
 
   // Create user in a transaction
   const t = await sequelize.transaction();
 
   try {
+    // First create the company
+    const company = await Company.create({
+      name: companyName,
+      country: 'Default', // Optional country field
+      currency: currencyData
+    }, { transaction: t });
+
+    // Then create the user with the companyId
     const user = await User.create({
       email,
       password,
       name,
       role: 'Admin',
-      companyId: null
+      companyId: company.id
     }, { transaction: t });
 
-    const company = await Company.create({
-      name: companyName,
-      country,
-      currency,
-      adminUserId: user.id
-    }, { transaction: t });
-
-    await user.update({ companyId: company.id }, { transaction: t });
+    // Update company with admin user ID
+    await company.update({ adminUserId: user.id }, { transaction: t });
 
     await t.commit();
 
@@ -131,6 +141,7 @@ exports.signup = asyncHandler(async (req, res, next) => {
     });
   } catch (error) {
     await t.rollback();
+    logger.error('Signup error:', error);
     throw error;
   }
 });

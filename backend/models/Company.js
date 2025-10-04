@@ -16,7 +16,8 @@ const Company = sequelize.define('Company', {
   },
   country: {
     type: DataTypes.STRING,
-    allowNull: false
+    allowNull: true,
+    defaultValue: 'Not Specified'
   },
   currency: {
     type: DataTypes.JSONB,
@@ -31,7 +32,7 @@ const Company = sequelize.define('Company', {
   },
   adminUserId: {
     type: DataTypes.UUID,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'Users',
       key: 'id'

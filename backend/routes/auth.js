@@ -7,11 +7,10 @@ const { protect } = require('../middleware/auth');
 
 router.post('/signup', authLimiter, [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
-  body('password').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('Password must contain uppercase, lowercase, and number'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
   body('companyName').trim().notEmpty().withMessage('Company name is required').isLength({ max: 200 }),
-  body('country').notEmpty().withMessage('Country is required')
+  body('currency').notEmpty().withMessage('Currency is required')
 ], authController.signup);
 
 router.post('/login', authLimiter, [
