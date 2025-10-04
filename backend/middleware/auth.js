@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { User } = require('../models');
 
 exports.protect = async (req, res, next) => {
   let token;
@@ -14,7 +14,9 @@ exports.protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
+    req.user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ['password'] }
+    });
     
     if (!req.user || !req.user.isActive) {
       return res.status(401).json({ success: false, message: 'User not found or inactive' });

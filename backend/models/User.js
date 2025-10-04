@@ -1,66 +1,82 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const sequelize = require('../config/database');
 
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
   email: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    lowercase: true,
-    trim: true
+    validate: {
+      isEmail: true
+    },
+    set(value) {
+      this.setDataValue('email', value.toLowerCase().trim());
+    }
   },
   password: {
-    type: String,
-    required: true,
-    minlength: 6
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      len: [6, 100]
+    }
   },
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    set(value) {
+      this.setDataValue('name', value.trim());
+    }
   },
   role: {
-    type: String,
-    enum: ['Admin', 'Manager', 'Employee'],
-    default: 'Employee'
+    type: DataTypes.ENUM('Admin', 'Manager', 'Employee'),
+    defaultValue: 'Employee'
   },
-  company: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    required: true
+  companyId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Companies',
+      key: 'id'
+    }
   },
-  manager: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    default: null
+  managerId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
   isManagerApprover: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
   },
   isActive: {
-    type: Boolean,
-    default: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
+}, {
+  tableName: 'Users',
+  timestamps: true
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
+User.beforeSave(async (user) => {
+  if (user.changed('password')) {
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(user.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+User.prototype.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

@@ -1,52 +1,67 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const approvalRuleSchema = new mongoose.Schema({
-  company: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    required: true
+const ApprovalRule = sequelize.define('ApprovalRule', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
+  companyId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Companies',
+      key: 'id'
+    }
   },
   name: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   ruleType: {
-    type: String,
-    enum: ['Sequential', 'Conditional', 'Hybrid'],
-    required: true
+    type: DataTypes.ENUM('Sequential', 'Conditional', 'Hybrid'),
+    allowNull: false
   },
-  steps: [{
-    stepNumber: Number,
-    approvers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    requireManagerApproval: { type: Boolean, default: false }
-  }],
+  steps: {
+    type: DataTypes.JSONB,
+    defaultValue: []
+  },
   conditionalRules: {
-    percentageRule: {
-      enabled: { type: Boolean, default: false },
-      percentage: { type: Number, min: 0, max: 100 }
-    },
-    specificApproverRule: {
-      enabled: { type: Boolean, default: false },
-      approvers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
-    },
-    hybridRule: {
-      enabled: { type: Boolean, default: false },
-      operator: { type: String, enum: ['AND', 'OR'] }
+    type: DataTypes.JSONB,
+    defaultValue: {
+      percentageRule: {
+        enabled: false,
+        percentage: 0
+      },
+      specificApproverRule: {
+        enabled: false,
+        approvers: []
+      },
+      hybridRule: {
+        enabled: false,
+        operator: 'AND'
+      }
     }
   },
   amountThreshold: {
-    min: { type: Number, default: 0 },
-    max: { type: Number, default: null }
+    type: DataTypes.JSONB,
+    defaultValue: {
+      min: 0,
+      max: null
+    }
   },
-  categories: [String],
+  categories: {
+    type: DataTypes.JSONB,
+    defaultValue: []
+  },
   isActive: {
-    type: Boolean,
-    default: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
   }
+}, {
+  tableName: 'ApprovalRules',
+  timestamps: true
 });
 
-module.exports = mongoose.model('ApprovalRule', approvalRuleSchema);
+module.exports = ApprovalRule;
