@@ -1,4 +1,4 @@
-const Company = require('../models/Company');
+const { Company, User } = require('../models');
 const axios = require('axios');
 
 exports.getCurrencies = async (req, res) => {
@@ -35,8 +35,15 @@ exports.getCurrencies = async (req, res) => {
 
 exports.getMyCompany = async (req, res) => {
   try {
-    const company = await Company.findById(req.user.company)
-      .populate('adminUser', 'name email');
+    const company = await Company.findByPk(req.user.companyId, {
+      include: [{ 
+        model: User, 
+        as: 'users', 
+        where: { id: company?.adminUserId },
+        attributes: ['id', 'name', 'email'],
+        required: false 
+      }]
+    });
 
     if (!company) {
       return res.status(404).json({ success: false, message: 'Company not found' });
@@ -51,7 +58,7 @@ exports.getMyCompany = async (req, res) => {
 
 exports.updateMyCompany = async (req, res) => {
   try {
-    const company = await Company.findById(req.user.company);
+    const company = await Company.findByPk(req.user.companyId);
 
     if (!company) {
       return res.status(404).json({ success: false, message: 'Company not found' });
@@ -59,11 +66,12 @@ exports.updateMyCompany = async (req, res) => {
 
     const { name, country, currency } = req.body;
 
-    if (name) company.name = name;
-    if (country) company.country = country;
-    if (currency) company.currency = currency;
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (country) updateData.country = country;
+    if (currency) updateData.currency = currency;
 
-    await company.save();
+    await company.update(updateData);
 
     res.json({ success: true, company });
   } catch (error) {

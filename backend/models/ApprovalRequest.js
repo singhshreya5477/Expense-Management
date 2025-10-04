@@ -1,33 +1,52 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const approvalRequestSchema = new mongoose.Schema({
-  expense: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Expense',
-    required: true
+const ApprovalRequest = sequelize.define('ApprovalRequest', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
   },
-  approver: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  expenseId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Expenses',
+      key: 'id'
+    }
+  },
+  approverId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
   stepNumber: {
-    type: Number,
-    required: true
+    type: DataTypes.INTEGER,
+    allowNull: false
   },
   status: {
-    type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
-    default: 'Pending'
+    type: DataTypes.ENUM('Pending', 'Approved', 'Rejected'),
+    defaultValue: 'Pending'
   },
-  comments: String,
-  actionDate: Date,
-  createdAt: {
-    type: Date,
-    default: Date.now
+  comments: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  actionDate: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
+}, {
+  tableName: 'ApprovalRequests',
+  timestamps: true,
+  indexes: [
+    {
+      fields: ['expenseId', 'stepNumber']
+    }
+  ]
 });
 
-approvalRequestSchema.index({ expense: 1, stepNumber: 1 });
-
-module.exports = mongoose.model('ApprovalRequest', approvalRequestSchema);
+module.exports = ApprovalRequest;

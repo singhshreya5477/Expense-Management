@@ -1,91 +1,87 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const expenseLineSchema = new mongoose.Schema({
-  description: String,
-  amount: Number,
-  category: String
-});
-
-const expenseSchema = new mongoose.Schema({
-  employee: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+const Expense = sequelize.define('Expense', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
   },
-  company: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    required: true
-  },
-  amount: {
-    type: Number,
-    required: true
-  },
-  currency: {
-    code: { type: String, required: true },
-    symbol: String
-  },
-  convertedAmount: {
-    type: Number,
-    required: true
-  },
-  category: {
-    type: String,
-    required: true,
-    enum: ['Travel', 'Food', 'Accommodation', 'Transport', 'Office Supplies', 'Entertainment', 'Other']
-  },
-  description: {
-    type: String,
-    required: true
-  },
-  date: {
-    type: Date,
-    required: true
-  },
-  receipt: {
-    filename: String,
-    path: String,
-    extractedData: {
-      merchantName: String,
-      amount: Number,
-      date: Date,
-      items: [expenseLineSchema]
+  employeeId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
     }
   },
-  expenseLines: [expenseLineSchema],
+  companyId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Companies',
+      key: 'id'
+    }
+  },
+  amount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  currency: {
+    type: DataTypes.JSONB,
+    allowNull: false
+  },
+  convertedAmount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  category: {
+    type: DataTypes.ENUM('Travel', 'Food', 'Accommodation', 'Transport', 'Office Supplies', 'Entertainment', 'Other'),
+    allowNull: false
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: false
+  },
+  date: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  receipt: {
+    type: DataTypes.JSONB,
+    allowNull: true
+  },
+  expenseLines: {
+    type: DataTypes.JSONB,
+    defaultValue: []
+  },
   status: {
-    type: String,
-    enum: ['Pending', 'Approved', 'Rejected', 'In Progress'],
-    default: 'Pending'
+    type: DataTypes.ENUM('Pending', 'Approved', 'Rejected', 'In Progress'),
+    defaultValue: 'Pending'
   },
   currentApprovalStep: {
-    type: Number,
-    default: 0
+    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
-  finalApprover: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+  finalApproverId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   },
-  finalApprovalDate: Date,
-  comments: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    comment: String,
-    action: { type: String, enum: ['Approved', 'Rejected', 'Comment'] },
-    date: { type: Date, default: Date.now }
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
+  finalApprovalDate: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  comments: {
+    type: DataTypes.JSONB,
+    defaultValue: []
   }
+}, {
+  tableName: 'Expenses',
+  timestamps: true
 });
 
-expenseSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-module.exports = mongoose.model('Expense', expenseSchema);
+module.exports = Expense;

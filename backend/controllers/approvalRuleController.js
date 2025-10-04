@@ -1,4 +1,4 @@
-const ApprovalRule = require('../models/ApprovalRule');
+const { ApprovalRule, User } = require('../models');
 
 exports.createApprovalRule = async (req, res) => {
   try {
@@ -11,8 +11,8 @@ exports.createApprovalRule = async (req, res) => {
       categories 
     } = req.body;
 
-    const rule = new ApprovalRule({
-      company: req.user.company,
+    const rule = await ApprovalRule.create({
+      companyId: req.user.companyId,
       name,
       ruleType,
       steps,
@@ -20,8 +20,6 @@ exports.createApprovalRule = async (req, res) => {
       amountThreshold,
       categories: categories || []
     });
-
-    await rule.save();
 
     res.status(201).json({ success: true, rule });
   } catch (error) {
@@ -32,8 +30,9 @@ exports.createApprovalRule = async (req, res) => {
 
 exports.getApprovalRules = async (req, res) => {
   try {
-    const rules = await ApprovalRule.find({ company: req.user.company })
-      .populate('steps.approvers', 'name email role');
+    const rules = await ApprovalRule.findAll({ 
+      where: { companyId: req.user.companyId }
+    });
 
     res.json({ success: true, rules });
   } catch (error) {
@@ -45,9 +44,11 @@ exports.getApprovalRules = async (req, res) => {
 exports.getApprovalRule = async (req, res) => {
   try {
     const rule = await ApprovalRule.findOne({ 
-      _id: req.params.id, 
-      company: req.user.company 
-    }).populate('steps.approvers', 'name email role');
+      where: {
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      }
+    });
 
     if (!rule) {
       return res.status(404).json({ success: false, message: 'Approval rule not found' });
@@ -63,8 +64,10 @@ exports.getApprovalRule = async (req, res) => {
 exports.updateApprovalRule = async (req, res) => {
   try {
     const rule = await ApprovalRule.findOne({ 
-      _id: req.params.id, 
-      company: req.user.company 
+      where: {
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      }
     });
 
     if (!rule) {
@@ -76,13 +79,14 @@ exports.updateApprovalRule = async (req, res) => {
       'amountThreshold', 'categories', 'isActive'
     ];
 
+    const updateData = {};
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
-        rule[field] = req.body[field];
+        updateData[field] = req.body[field];
       }
     });
 
-    await rule.save();
+    await rule.update(updateData);
 
     res.json({ success: true, rule });
   } catch (error) {
@@ -93,14 +97,18 @@ exports.updateApprovalRule = async (req, res) => {
 
 exports.deleteApprovalRule = async (req, res) => {
   try {
-    const rule = await ApprovalRule.findOneAndDelete({ 
-      _id: req.params.id, 
-      company: req.user.company 
+    const rule = await ApprovalRule.findOne({ 
+      where: {
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      }
     });
 
     if (!rule) {
       return res.status(404).json({ success: false, message: 'Approval rule not found' });
     }
+
+    await rule.destroy();
 
     res.json({ success: true, message: 'Approval rule deleted successfully' });
   } catch (error) {

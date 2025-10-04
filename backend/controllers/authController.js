@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
-const User = require('../models/User');
-const Company = require('../models/Company');
+const { User, Company, sequelize } = require('../models');
 const axios = require('axios');
 const logger = require('../utils/logger');
 const asyncHandler = require('../utils/asyncHandler');
@@ -56,7 +55,7 @@ const signToken = (id) => {
 };
 
 const createSendToken = (user, statusCode, res, company = null) => {
-  const token = signToken(user._id);
+  const token = signToken(user.id);
 
   const cookieOptions = {
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -67,13 +66,14 @@ const createSendToken = (user, statusCode, res, company = null) => {
   res.cookie('jwt', token, cookieOptions);
 
   // Remove password from output
-  user.password = undefined;
+  const userObj = user.toJSON();
+  delete userObj.password;
 
   res.status(statusCode).json({
     success: true,
     token,
     user: {
-      id: user._id,
+      id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
@@ -91,7 +91,7 @@ exports.signup = asyncHandler(async (req, res, next) => {
   const { email, password, name, companyName, country } = req.body;
 
   // Check if user exists
-  const existingUser = await User.findOne({ email });
+  const existingUser = await User.findOne({ where: { email } });
   if (existingUser) {
     return next(new AppError('User already exists with this email', 400));
   }
@@ -100,46 +100,38 @@ exports.signup = asyncHandler(async (req, res, next) => {
   const currency = await getCurrencyForCountry(country);
 
   // Create user in a transaction
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const t = await sequelize.transaction();
 
   try {
-    const user = new User({
+    const user = await User.create({
       email,
       password,
       name,
       role: 'Admin',
-      company: null
-    });
+      companyId: null
+    }, { transaction: t });
 
-    await user.save({ session });
-
-    const company = new Company({
+    const company = await Company.create({
       name: companyName,
       country,
       currency,
-      adminUser: user._id
-    });
+      adminUserId: user.id
+    }, { transaction: t });
 
-    await company.save({ session });
+    await user.update({ companyId: company.id }, { transaction: t });
 
-    user.company = company._id;
-    await user.save({ session });
-
-    await session.commitTransaction();
+    await t.commit();
 
     logger.info(`New company created: ${companyName} by ${email}`);
 
     createSendToken(user, 201, res, {
-      id: company._id,
+      id: company.id,
       name: company.name,
       currency: company.currency
     });
   } catch (error) {
-    await session.abortTransaction();
+    await t.rollback();
     throw error;
-  } finally {
-    session.endSession();
   }
 });
 
@@ -151,7 +143,10 @@ exports.login = asyncHandler(async (req, res, next) => {
 
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email }).select('+password').populate('company');
+  const user = await User.findOne({ 
+    where: { email },
+    include: [{ model: Company, as: 'company' }]
+  });
   
   if (!user || !(await user.comparePassword(password))) {
     return next(new AppError('Incorrect email or password', 401));
@@ -164,7 +159,7 @@ exports.login = asyncHandler(async (req, res, next) => {
   logger.info(`User logged in: ${email}`);
 
   createSendToken(user, 200, res, {
-    id: user.company._id,
+    id: user.company.id,
     name: user.company.name,
     currency: user.company.currency
   });

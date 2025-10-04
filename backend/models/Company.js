@@ -1,29 +1,45 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
-const companySchema = new mongoose.Schema({
+const Company = sequelize.define('Company', {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true
+  },
   name: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
+    set(value) {
+      this.setDataValue('name', value.trim());
+    }
   },
   country: {
-    type: String,
-    required: true
+    type: DataTypes.STRING,
+    allowNull: false
   },
   currency: {
-    code: { type: String, required: true },
-    symbol: { type: String, required: true },
-    name: { type: String, required: true }
+    type: DataTypes.JSONB,
+    allowNull: false,
+    validate: {
+      hasRequiredFields(value) {
+        if (!value || !value.code || !value.symbol || !value.name) {
+          throw new Error('Currency must have code, symbol, and name');
+        }
+      }
+    }
   },
-  adminUser: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  adminUserId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   }
+}, {
+  tableName: 'Companies',
+  timestamps: true
 });
 
-module.exports = mongoose.model('Company', companySchema);
+module.exports = Company;

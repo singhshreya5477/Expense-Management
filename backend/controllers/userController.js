@@ -1,34 +1,32 @@
-const User = require('../models/User');
+const { User } = require('../models');
 
 exports.createUser = async (req, res) => {
   try {
     const { email, password, name, role, managerId, isManagerApprover } = req.body;
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
 
-    const user = new User({
+    const user = await User.create({
       email,
       password,
       name,
       role: role || 'Employee',
-      company: req.user.company,
-      manager: managerId || null,
+      companyId: req.user.companyId,
+      managerId: managerId || null,
       isManagerApprover: isManagerApprover || false
     });
-
-    await user.save();
 
     res.status(201).json({
       success: true,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
-        manager: user.manager,
+        managerId: user.managerId,
         isManagerApprover: user.isManagerApprover
       }
     });
@@ -40,9 +38,15 @@ exports.createUser = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({ company: req.user.company })
-      .select('-password')
-      .populate('manager', 'name email');
+    const users = await User.findAll({ 
+      where: { companyId: req.user.companyId },
+      attributes: { exclude: ['password'] },
+      include: [{ 
+        model: User, 
+        as: 'manager', 
+        attributes: ['id', 'name', 'email'] 
+      }]
+    });
 
     res.json({ success: true, users });
   } catch (error) {
@@ -53,9 +57,18 @@ exports.getUsers = async (req, res) => {
 
 exports.getUser = async (req, res) => {
   try {
-    const user = await User.findOne({ _id: req.params.id, company: req.user.company })
-      .select('-password')
-      .populate('manager', 'name email');
+    const user = await User.findOne({ 
+      where: { 
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      },
+      attributes: { exclude: ['password'] },
+      include: [{ 
+        model: User, 
+        as: 'manager', 
+        attributes: ['id', 'name', 'email'] 
+      }]
+    });
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -72,16 +85,23 @@ exports.updateUser = async (req, res) => {
   try {
     const { name, email, isActive } = req.body;
 
-    const user = await User.findOne({ _id: req.params.id, company: req.user.company });
+    const user = await User.findOne({ 
+      where: { 
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      } 
+    });
+    
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (name) user.name = name;
-    if (email) user.email = email;
-    if (typeof isActive !== 'undefined') user.isActive = isActive;
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (typeof isActive !== 'undefined') updateData.isActive = isActive;
 
-    await user.save();
+    await user.update(updateData);
 
     res.json({ success: true, user });
   } catch (error) {
@@ -94,13 +114,18 @@ exports.updateUserRole = async (req, res) => {
   try {
     const { role } = req.body;
 
-    const user = await User.findOne({ _id: req.params.id, company: req.user.company });
+    const user = await User.findOne({ 
+      where: { 
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      } 
+    });
+    
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    user.role = role;
-    await user.save();
+    await user.update({ role });
 
     res.json({ success: true, user });
   } catch (error) {
@@ -113,24 +138,38 @@ exports.assignManager = async (req, res) => {
   try {
     const { managerId, isManagerApprover } = req.body;
 
-    const user = await User.findOne({ _id: req.params.id, company: req.user.company });
+    const user = await User.findOne({ 
+      where: { 
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      } 
+    });
+    
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    const updateData = {};
+
     if (managerId) {
-      const manager = await User.findOne({ _id: managerId, company: req.user.company });
+      const manager = await User.findOne({ 
+        where: { 
+          id: managerId, 
+          companyId: req.user.companyId 
+        } 
+      });
+      
       if (!manager) {
         return res.status(404).json({ success: false, message: 'Manager not found' });
       }
-      user.manager = managerId;
+      updateData.managerId = managerId;
     }
 
     if (typeof isManagerApprover !== 'undefined') {
-      user.isManagerApprover = isManagerApprover;
+      updateData.isManagerApprover = isManagerApprover;
     }
 
-    await user.save();
+    await user.update(updateData);
 
     res.json({ success: true, user });
   } catch (error) {
@@ -141,10 +180,18 @@ exports.assignManager = async (req, res) => {
 
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await User.findOneAndDelete({ _id: req.params.id, company: req.user.company });
+    const user = await User.findOne({ 
+      where: { 
+        id: req.params.id, 
+        companyId: req.user.companyId 
+      } 
+    });
+    
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    await user.destroy();
 
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error) {

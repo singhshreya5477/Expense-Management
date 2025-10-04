@@ -1,8 +1,7 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { sequelize } = require('./models');
 const cors = require('cors');
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const compression = require('compression');
@@ -36,7 +35,6 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   credentials: true
 }));
-app.use(mongoSanitize()); // Prevent NoSQL injection
 app.use(xss()); // Prevent XSS attacks
 app.use(hpp()); // Prevent parameter pollution
 
@@ -59,33 +57,26 @@ app.use((req, res, next) => {
 // Database connection with retry logic
 const connectDB = async (retries = 5) => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000
-    });
-    logger.info('MongoDB connected successfully');
+    await sequelize.authenticate();
+    logger.info('PostgreSQL connected successfully');
+    
+    // Sync database in development (be careful in production!)
+    if (process.env.NODE_ENV === 'development') {
+      await sequelize.sync({ alter: false });
+      logger.info('Database synchronized');
+    }
   } catch (err) {
     if (retries > 0) {
-      logger.warn(`MongoDB connection failed. Retrying... (${retries} attempts left)`);
+      logger.warn(`PostgreSQL connection failed. Retrying... (${retries} attempts left)`);
       setTimeout(() => connectDB(retries - 1), 5000);
     } else {
-      logger.error('MongoDB connection error:', err);
+      logger.error('PostgreSQL connection error:', err);
       process.exit(1);
     }
   }
 };
 
 connectDB();
-
-// Mongoose connection event handlers
-mongoose.connection.on('error', err => {
-  logger.error('MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  logger.warn('MongoDB disconnected. Attempting to reconnect...');
-});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -97,14 +88,25 @@ app.use('/api/approval-rules', require('./routes/approvalRules'));
 app.use('/api/ocr', require('./routes/ocr'));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
-  });
+app.get('/health', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.status(200).json({
+      success: true,
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'connected'
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: 'disconnected'
+    });
+  }
 });
 
 // Handle undefined routes
@@ -116,12 +118,11 @@ app.all('*', (req, res, next) => {
 app.use(errorHandler);
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received. Shutting down gracefully...');
-  mongoose.connection.close(() => {
-    logger.info('MongoDB connection closed.');
-    process.exit(0);
-  });
+  await sequelize.close();
+  logger.info('PostgreSQL connection closed.');
+  process.exit(0);
 });
 
 process.on('unhandledRejection', (err) => {
